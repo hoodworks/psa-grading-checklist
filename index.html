@@ -5340,29 +5340,49 @@ function updateTotals(){
 }
 
 // ── Others toggle ─────────────────────────────────────────────────────────────
+let _othersCardId=null;
 function toggleOthers(cardId){
   const others=loadOthers();
   if(others[cardId]){
     delete others[cardId];
     clearOthersState(cardId);
+    localStorage.setItem(OTHERS_KEY,JSON.stringify(others));
+    updateTotals();
   } else {
-    others[cardId]=true;
-    applyOthersState(cardId);
+    _othersCardId=cardId;
+    document.getElementById('others-name-input').value='';
+    document.getElementById('others-overlay').classList.add('show');
+    setTimeout(()=>document.getElementById('others-name-input').focus(),80);
   }
+}
+function submitOthers(){
+  const name=document.getElementById('others-name-input').value.trim()||'Someone';
+  const others=loadOthers();
+  others[_othersCardId]=name;
   localStorage.setItem(OTHERS_KEY,JSON.stringify(others));
+  applyOthersState(_othersCardId);
+  document.getElementById('others-overlay').classList.remove('show');
+  _othersCardId=null;
   updateTotals();
 }
+function closeOthers(){
+  document.getElementById('others-overlay').classList.remove('show');
+  _othersCardId=null;
+}
 function applyOthersState(cardId){
+  const others=loadOthers();
+  const ownerName=typeof others[cardId]==='string'?others[cardId]:'';
   document.getElementById('row'+cardId)?.classList.add('theirs-row');
-  document.getElementById('theirsbadge'+cardId)?.classList.remove('hidden');
+  const badge=document.getElementById('theirsbadge'+cardId);
+  if(badge){ badge.textContent=ownerName?ownerName+"'s":'THEIRS'; badge.classList.remove('hidden'); }
   document.getElementById('theirsbtn'+cardId)?.classList.add('active');
-  // hide sell btn while marked as theirs
   const sb=document.getElementById('sellbtn'+cardId);
   if(sb){ sb.style.display='none'; }
 }
 function clearOthersState(cardId){
   document.getElementById('row'+cardId)?.classList.remove('theirs-row');
-  document.getElementById('theirsbadge'+cardId)?.classList.add('hidden');
+  const badge=document.getElementById('theirsbadge'+cardId);
+  if(badge){ badge.textContent='THEIRS'; badge.classList.add('hidden'); }
   document.getElementById('theirsbtn'+cardId)?.classList.remove('active');
   const sb=document.getElementById('sellbtn'+cardId);
   if(sb){ sb.style.display=''; }
@@ -5444,7 +5464,14 @@ async function handleFile(file){
     const result=parsePSA(allItems);
     if(!result.subNum){ st.textContent='Could not find submission number.'; return; }
     if(document.querySelector('.submission[data-sub="'+result.subNum+'"]')){ st.textContent='#'+result.subNum+' already in list.'; return; }
-    if(!result.cards.length){ st.textContent='No cards found — PDF may be image-only.'; return; }
+    if(!result.cards.length){
+      const preview=allItems.slice(0,40).map(i=>i.text).join(' ');
+      st.style.color='#d97706';
+      st.innerHTML='No cards found. Extracted text preview:<br><small style="font-size:9px;word-break:break-all;color:#666">'+
+        preview.slice(0,300)+(preview.length>300?'…':'')+'</small><br>'+
+        '<span style="font-size:10px">If this looks right, try uploading a different page or check the PDF is not image-only.</span>';
+      return;
+    }
     addSubmission(result);
     st.style.color='#059669';
     st.textContent='✔ Added #'+result.subNum+' with '+result.cards.length+' cards!';
@@ -5452,32 +5479,87 @@ async function handleFile(file){
   }catch(err){ st.textContent='Error: '+err.message; }
 }
 function parsePSA(items){
-  const yMap={};
-  items.forEach(item=>{ const y=Math.round(item.y/4)*4; if(!yMap[y]) yMap[y]=[]; yMap[y].push(item); });
-  const lines=Object.keys(yMap).map(Number).sort((a,b)=>b-a).map(y=>yMap[y].sort((a,b)=>a.x-b.x).map(i=>i.text));
+  if(!items.length) return{subNum:'',subDate:'',service:'',cards:[]};
+
+  // Try multiple Y-rounding values and pick the one with most lines
+  let bestLines=null;
+  for(const yr of [2,3,4,6,8,10]){
+    const ym={};
+    items.forEach(item=>{
+      const y=Math.round(item.y/yr)*yr;
+      if(!ym[y]) ym[y]=[];
+      ym[y].push(item);
+    });
+    const ls=Object.keys(ym).map(Number).sort((a,b)=>b-a)
+      .map(y=>ym[y].sort((a,b)=>a.x-b.x).map(i=>i.text));
+    if(!bestLines||ls.length>bestLines.length) bestLines=ls;
+  }
+  const lines=bestLines;
   const flat=lines.map(l=>l.join(' ')).join('\n');
-  let subNum=''; const snm=flat.match(/SUBMISSION\s*#?\s*[\n\s]*(\d{7,8})/); if(snm) subNum=snm[1];
-  let subDate=''; const dtm=flat.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})/); if(dtm) subDate=dtm[1];
-  let service=''; const svm=flat.match(/SERVICE LEVEL:\s*([^\n]+)/); if(svm) service=svm[1].trim();
-  const cards=[]; let inTable=false,pending=null;
+
+  // Submission number — multiple patterns
+  let subNum='';
+  for(const p of [/SUBMISSION\s*#?\s*[\n\s]*(\d{7,8})/i,/SUB.*?(\d{7,8})/i,/\b(\d{8})\b/]){
+    const m=flat.match(p); if(m){subNum=m[1];break;}
+  }
+  let subDate='';
+  const dtm=flat.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})/); if(dtm) subDate=dtm[1];
+  let service='';
+  const svm=flat.match(/SERVICE\s+LEVEL[:\s]*([^\n]+)/i); if(svm) service=svm[1].trim();
+
+  const cards=[];
+  let inTable=false,pending=null;
+  const STOP_WORDS=['GRAND TOTAL','Grand Total','I HAVE READ','psacard.com','SUBTOTAL'];
+
   for(const tokens of lines){
     const lt=tokens.join(' ');
-    if(lt.includes('LN#')&&lt.includes('QTY')){ inTable=true; continue; }
-    if(lt.includes('GRAND TOTAL')||lt.includes('I HAVE READ')){ if(pending) cards.push(pending); inTable=false; continue; }
-    if(!inTable||lt.includes('psacard.com')) continue;
+
+    // Table start detection (flexible)
+    if(!inTable){
+      const up=lt.toUpperCase();
+      if((up.includes('LN#')||up.includes('LINE #')||up.includes('LINE#'))&&
+         (up.includes('QTY')||up.includes('QUANTITY'))){ inTable=true; continue; }
+      if(up.includes('DESCRIPTION')&&up.includes('QTY')){ inTable=true; continue; }
+      // PSA sometimes uses "No." and "Qty"
+      if(up.match(/\bNO\.?\b/)&&up.match(/\bQTY\b/)){ inTable=true; continue; }
+    }
+
+    // Table end
+    if(STOP_WORDS.some(s=>lt.includes(s))){
+      if(pending) cards.push(pending); pending=null;
+      inTable=false; continue;
+    }
+
+    if(!inTable) continue;
+    if(!lt.trim()) continue;
+
+    // Card row: first token is integer (line#), second is integer (qty)
     if(/^\d+$/.test(tokens[0])&&tokens.length>1&&/^\d+$/.test(tokens[1])){
       if(pending) cards.push(pending);
-      let di=2; if(di<tokens.length&&/^[A-Z]{2,}\d{4,}/.test(tokens[di])) di++;
-      if(di<tokens.length&&(tokens[di]==='TCG'||tokens[di]==='NON-SPORT')) di+=2;
-      const desc=tokens.slice(di).filter(t=>!t.match(/^\$[\d,]+$/));
-      const game=lt.includes('POKEMON')||lt.includes('POKÉMON')?'Pokemon':lt.includes('GUNDAM')?'Gundam':lt.includes('LORCANA')?'Lorcana':'Other';
-      pending={qty:parseInt(tokens[1]),name:desc.join(' '),rarity:'',game};
-    } else if(pending){
-      const add=tokens.filter(t=>!t.match(/^\$[\d,]+$/)&&!t.match(/^\d+$/)&&t.length>1).join(' ');
-      if(add&&!add.includes('psacard')) pending.name+=' '+add;
+      let di=2;
+      // Skip cert# (alphanumeric 6+ chars with no spaces and no dash)
+      if(di<tokens.length&&/^[A-Z0-9]{6,}$/.test(tokens[di])&&!tokens[di].includes('-')) di++;
+      // Skip sport/game category keywords
+      const SKIP_CATS=['TCG','NON-SPORT','SPORTS','POKEMON','GUNDAM','LORCANA','TRADING','CARD','CARDS','OTHER'];
+      while(di<tokens.length&&SKIP_CATS.includes(tokens[di].toUpperCase())) di++;
+
+      const nameTokens=tokens.slice(di).filter(t=>!t.match(/^\$[\d,]+(\.\d+)?$/)&&t.length>0);
+      const nameStr=nameTokens.join(' ').trim();
+
+      const ltu=lt.toUpperCase();
+      const game=ltu.includes('POKEMON')||ltu.includes('POKÉMON')?'Pokemon':
+                 ltu.includes('GUNDAM')?'Gundam':
+                 ltu.includes('LORCANA')?'Lorcana':'Other';
+      pending={qty:parseInt(tokens[1]),name:nameStr||'Unknown Card',rarity:'',game};
+    } else if(pending&&tokens.length>0){
+      // Continuation line — append to card name
+      const skip=/^\$[\d,]+(\.\d+)?$|^\d+\.\d{2}$|^psacard/i;
+      const add=tokens.filter(t=>t.length>1&&!skip.test(t)).join(' ');
+      if(add) pending.name+=' '+add;
     }
   }
   if(pending) cards.push(pending);
+
   return{subNum,subDate,service,cards};
 }
 let _ncc=90000;
@@ -5590,5 +5672,24 @@ function renderSales(){
   wrap.innerHTML=`<table class="sales-tbl"><thead><tr><th>Date</th><th>Item</th><th>Cost</th><th>Sold</th><th>Profit</th><th>Method</th><th>Venue</th><th>Tax</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 </script>
+
+<!-- Others Modal -->
+<div class="modal-overlay" id="others-overlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-hdr"><span class="modal-hdr-title">👤 Whose card is this?</span><button class="modal-close" onclick="closeOthers()">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label class="form-label">Owner's Name</label>
+        <input class="form-input" type="text" id="others-name-input" placeholder="e.g. Alex" onkeydown="if(event.key==='Enter')submitOthers()">
+      </div>
+      <p style="font-size:11px;color:#8090a8;margin-top:-8px;line-height:1.6">This card will be highlighted yellow and excluded from your market value and fee totals.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeOthers()">Cancel</button>
+      <button class="btn-save"   onclick="submitOthers()">Mark as Theirs</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
