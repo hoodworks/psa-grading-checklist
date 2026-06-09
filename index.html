@@ -225,30 +225,18 @@ input[type=checkbox].order-check:hover:not(:checked),
 
 /* ── Pokéball wobble + burst animation ─────────────────────────────────────── */
 @keyframes pb-wobble {
-  /* Wobble 1 — strong */
-  0%   { transform: rotate(0deg);    filter: brightness(1); }
-  6%   { transform: rotate(-28deg);  }
-  18%  { transform: rotate(28deg);   }
-  /* Wobble 2 — medium */
-  30%  { transform: rotate(-22deg);  }
-  42%  { transform: rotate(22deg);   }
-  /* Wobble 3 — small */
-  51%  { transform: rotate(-13deg);  }
-  59%  { transform: rotate(10deg);   }
-  /* Settle */
-  66%  { transform: rotate(-4deg);   }
-  72%  { transform: rotate(0deg);    filter: brightness(1); }
-  /* Pause before flash */
-  80%  { transform: rotate(0deg);    filter: brightness(1); }
-  /* Flash! */
-  85%  { transform: rotate(0deg) scale(1.1); filter: brightness(6) saturate(0); }
-  89%  { transform: rotate(0deg) scale(1);   filter: brightness(1.2); }
-  93%  { transform: rotate(0deg);    filter: brightness(4) saturate(0); }
+  0%   { transform: scale(1);    filter: brightness(1); }
+  30%  { transform: scale(1.35); filter: brightness(1.5); }
+  55%  { transform: scale(1.1);  filter: brightness(1); }
+  /* Flash */
+  70%  { transform: scale(1.15); filter: brightness(6) saturate(0); }
+  80%  { transform: scale(1);    filter: brightness(1.2); }
+  88%  { transform: scale(1.08); filter: brightness(4) saturate(0); }
   /* Settle greyscale */
-  100% { transform: rotate(0deg);    filter: grayscale(1) brightness(0.68); }
+  100% { transform: scale(1);    filter: grayscale(1) brightness(0.68); }
 }
 input[type=checkbox].pb-wobbling {
-  animation: pb-wobble 2s linear forwards !important;
+  animation: pb-wobble 0.75s ease-out forwards !important;
   filter: none !important;
 }
 @keyframes pb-ring {
@@ -6079,7 +6067,7 @@ document.addEventListener('change', function(e){
   void cb.offsetWidth;
   cb.classList.add('pb-wobbling');
   cb.addEventListener('animationend',function(){cb.classList.remove('pb-wobbling');},{once:true});
-  // Delay burst to the flash moment (~85% of 2s = 1700ms)
+  // Delay burst to the flash moment (~70% of 0.75s = 525ms)
   setTimeout(function(){
     var rect2=cb.getBoundingClientRect();
     var cx2=rect2.left+rect2.width/2, cy2=rect2.top+rect2.height/2;
@@ -6104,7 +6092,7 @@ document.addEventListener('change', function(e){
       document.body.appendChild(sp);
       sp.addEventListener('animationend',function(){sp.remove();});
     }
-  }, 1680);
+  }, 525);
 }, true);
 </script>
 
