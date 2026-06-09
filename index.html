@@ -162,6 +162,26 @@ table.sales-tbl tr:hover td{background:#eef8ff}
 ::-webkit-scrollbar{width:7px}
 ::-webkit-scrollbar-track{background:#e8f0f8}
 ::-webkit-scrollbar-thumb{background:#90b8d8;border-radius:4px}
+
+/* Order-level checkbox in sub header */
+.order-check{width:18px;height:18px;accent-color:#60d080;flex-shrink:0;cursor:pointer;margin-top:2px}
+/* Nickname input */
+.nick-input{margin-top:5px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:3px 10px;font-size:11px;font-weight:700;color:#fff;font-family:'Nunito',system-ui,sans-serif;width:100%;max-width:280px;outline:none;transition:.15s}
+.nick-input::placeholder{color:rgba(255,255,255,.45)}
+.nick-input:focus{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.6)}
+/* Delete dynamic sub */
+.del-sub-btn{background:none;border:none;cursor:pointer;font-size:14px;padding:2px 5px;border-radius:6px;color:rgba(255,255,255,.6);transition:.15s;line-height:1}
+.del-sub-btn:hover{background:rgba(255,0,0,.25);color:#fff}
+/* Inline name edit */
+.name-edit-input{width:100%;font-size:12px;font-weight:700;font-family:'Nunito',system-ui,sans-serif;border:2px solid #2060c8;border-radius:6px;padding:2px 6px;outline:none;color:#1a2030;background:#fff}
+/* Sort buttons */
+.sort-sep{color:#c0ccd8;margin:0 4px;font-size:13px}
+.sort-btn{font-family:'Nunito',system-ui,sans-serif;font-weight:700;font-size:11px;padding:5px 11px;border:1.5px solid #dde8f4;border-radius:16px;background:#fff;cursor:pointer;color:#4060a0;transition:.15s}
+.sort-btn:hover{background:#e0f0ff;border-color:#90b8e0;color:#2060c8}
+/* Card name edit hint */
+.card-name{cursor:default}
+.card-name:hover{color:#2060c8}
+
 </style>
 </head>
 <body>
@@ -260,6 +280,13 @@ table.sales-tbl tr:hover td{background:#eef8ff}
     <span class="text-btn" onclick="expandAll()">▼ Expand All</span>
     <span class="text-btn" onclick="collapseAll()">▲ Collapse</span>
     <span class="text-btn" onclick="uncheckAll()">✕ Clear Checks</span>
+        <span class="sort-sep">|</span>
+    <span class="filter-label">SORT:</span>
+    <button class="sort-btn" onclick="sortOrders('default')">📋 Orders ↺</button>
+    <button class="sort-btn" onclick="sortOrders('nick')">🔤 A–Z</button>
+    <button class="sort-btn" onclick="sortOrders('count')">🔢 By Count</button>
+    <button class="sort-btn" onclick="sortItems('name')">Cards A–Z</button>
+    <button class="sort-btn" onclick="sortItems('qty')">Cards by Qty</button>
     <button class="upload-btn" onclick="openUpload()">＋ Add Submission</button>
   </div>
   <div id="main">
@@ -5292,6 +5319,14 @@ const loadOthers = () => load(OTHERS_KEY) || {};
   const fb=document.querySelector('.sub-body');
   const fc=document.querySelector('.chevron');
   if(fb){ fb.classList.add('open'); if(fc) fc.style.transform='rotate(180deg)'; }
+
+  // Restore dynamically-added submissions (from PDF uploads)
+  loadDynSubs().forEach(r=>{
+    if(!document.querySelector('.submission[data-sub="'+r.subNum+'"]')) _renderSub(r);
+    _restoreSubState(r);
+  });
+
+  enhanceSubs();
 })();
 
 // ── Checkboxes ────────────────────────────────────────────────────────────────
@@ -5562,34 +5597,237 @@ function parsePSA(items){
 
   return{subNum,subDate,service,cards};
 }
-let _ncc=90000;
-function addSubmission(result){
+// ── Dynamic submission render + persist ──────────────────────────────────────
+const SUB_DYN_KEY='tcg_subs_v1';
+const ORDER_CHK_KEY='tcg_orderck_v1';
+const NICK_KEY='tcg_nick_v1';
+const CNAME_KEY='tcg_cnames_v1';
+const CQTY_KEY='tcg_cqty_v1';
+const loadDynSubs =()=>load(SUB_DYN_KEY)||[];
+const loadOrderCks=()=>load(ORDER_CHK_KEY)||{};
+const loadNicks   =()=>load(NICK_KEY)||{};
+const loadCNames  =()=>load(CNAME_KEY)||{};
+const loadCQty    =()=>load(CQTY_KEY)||{};
+
+function _renderSub(result){
   const gc={Pokemon:'#e03040',Gundam:'#2060c8',Lorcana:'#7c3aed',Other:'#059669'};
   const counts={};
   result.cards.forEach(c=>counts[c.game]=(counts[c.game]||0)+c.qty);
   let badges='';
-  [['Pokemon','PKM'],['Gundam','GND'],['Lorcana','LOR'],['Other','OTH']].forEach(([g,a])=>{ if(counts[g]) badges+=`<span class="badge" style="background:${gc[g]||'#666'}">${a}×${counts[g]}</span>`; });
+  [['Pokemon','PKM'],['Gundam','GND'],['Lorcana','LOR'],['Other','OTH']].forEach(([g,a])=>{
+    if(counts[g]) badges+=`<span class="badge" style="background:${gc[g]||'#666'}">${a}×${counts[g]}</span>`;
+  });
+  const cnames=loadCNames(), cqtys=loadCQty();
   let rows='';
-  result.cards.forEach(card=>{
-    _ncc++;
-    const cid='n'+_ncc; const c=gc[card.game]||'#666';
+  result.cards.forEach((card,idx)=>{
+    const cid='d_'+result.subNum+'_'+idx;
+    const c=gc[card.game]||'#666';
+    const dispName=cnames[cid]||card.name||'(card)';
+    const dispQty=cqtys[cid]||card.qty;
     rows+=`<div class="card-row" data-game="${card.game}" data-cid="${cid}" id="row${cid}">
       <input type="checkbox" id="c${cid}" onchange="onCheck(this,'${cid}')">
-      <div class="card-info"><label class="card-name" for="c${cid}">${card.name||'(card)'}</label></div>
-      ${card.qty>1?`<span class="qty-pill" style="background:${c}">×${card.qty}</span>`:''}
+      <div class="card-info"><label class="card-name" for="c${cid}" title="Double-click to edit">${dispName}</label></div>
+      ${dispQty>1?`<span class="qty-pill" style="background:${c}" title="Double-click to edit qty">×${dispQty}</span>`:''}
       <span class="sold-badge hidden" id="soldbadge${cid}">SOLD</span>
       <span class="theirs-badge hidden" id="theirsbadge${cid}">THEIRS</span>
       <div class="price-wrap"><span class="price-prefix">$</span><input class="price-input" type="number" min="0" step="0.01" placeholder="0.00" id="p${cid}" data-cid="${cid}" onchange="savePrice('${cid}',this.value)" oninput="updateTotals()"></div>
-      <a class="tcg-btn" href="https://www.tcgplayer.com/search/all/product?q=${encodeURIComponent(card.name)}" target="_blank">TCG</a>
-      <button class="theirs-btn" id="theirsbtn${cid}" onclick="toggleOthers('${cid}')" title="Mark as someone else's">👤</button>
-      <button class="sell-btn" id="sellbtn${cid}" data-name="${card.name.replace(/"/g,'&quot;')}" onclick="openMarkSold('${cid}')">💰</button>
+      <a class="tcg-btn" href="https://www.tcgplayer.com/search/all/product?q=${encodeURIComponent(card.name||'')}" target="_blank">TCG</a>
+      <button class="theirs-btn" id="theirsbtn${cid}" onclick="toggleOthers('${cid}')" title="Mark as someone else’s">👤</button>
+      <button class="sell-btn" id="sellbtn${cid}" data-name="${dispName.replace(/"/g,'&quot;')}" onclick="openMarkSold('${cid}')">💰</button>
     </div>`;
   });
   const total=result.cards.reduce((a,c)=>a+c.qty,0);
   const div=document.createElement('div');
-  div.className='submission'; div.dataset.sub=result.subNum;
-  div.innerHTML=`<div class="sub-header" onclick="toggleSub(this)"><div><div class="sub-num">#${result.subNum}</div><div class="sub-meta">${result.subDate} · ${result.service} · ${total} cards</div></div><div class="sub-right">${badges}<span class="chevron" style="transform:rotate(180deg)">▼</span></div></div><div class="sub-body open">${rows}</div>`;
+  div.className='submission submission-dyn'; div.dataset.sub=result.subNum;
+  div.innerHTML=`<div class="sub-header" onclick="toggleSub(this)">
+    <div><div class="sub-num">#${result.subNum}</div><div class="sub-meta">${result.subDate||''} · ${result.service||''} · ${total} cards</div></div>
+    <div class="sub-right">${badges}
+      <button class="del-sub-btn" title="Remove submission" onclick="event.stopPropagation();removeDynSub('${result.subNum}')">🗑</button>
+      <span class="chevron" style="transform:rotate(180deg)">▼</span>
+    </div>
+  </div><div class="sub-body open">${rows}</div>`;
   document.getElementById('main').prepend(div);
+}
+
+function addSubmission(result){
+  const dynSubs=loadDynSubs();
+  if(!dynSubs.find(s=>s.subNum===result.subNum)){
+    dynSubs.push(result);
+    localStorage.setItem(SUB_DYN_KEY,JSON.stringify(dynSubs));
+  }
+  if(!document.querySelector('.submission[data-sub="'+result.subNum+'"]')) _renderSub(result);
+  _restoreSubState(result);
+  updateProgress(); updateTotals(); enhanceSubs();
+}
+
+function _restoreSubState(result){
+  const checks=loadChecks(),prices=loadPrices(),sold=loadSold(),others=loadOthers();
+  result.cards.forEach((_,idx)=>{
+    const cid='d_'+result.subNum+'_'+idx;
+    if(checks[cid]){const cb=document.getElementById('c'+cid);if(cb){cb.checked=true;document.querySelector('label[for="c'+cid+'"]')?.classList.add('done');}}
+    if(prices[cid]){const inp=document.getElementById('p'+cid);if(inp)inp.value=prices[cid];}
+    if(sold[cid]) applySoldState(cid);
+    if(others[cid]) applyOthersState(cid);
+  });
+}
+
+function removeDynSub(subNum){
+  if(!confirm('Remove this submission from the dashboard?\n(Your actual PSA order is unaffected.)')) return;
+  localStorage.setItem(SUB_DYN_KEY,JSON.stringify(loadDynSubs().filter(s=>s.subNum!==subNum)));
+  document.querySelector('.submission[data-sub="'+subNum+'"]')?.remove();
+  updateProgress(); updateTotals();
+}
+
+// ── Order-level checkbox ──────────────────────────────────────────────────────
+function toggleOrderCheck(subNum,cb){
+  const d=loadOrderCks(); d[subNum]=cb.checked;
+  localStorage.setItem(ORDER_CHK_KEY,JSON.stringify(d));
+  document.querySelectorAll('.submission[data-sub="'+subNum+'"] .card-row input[type=checkbox]').forEach(c=>{
+    if(c.checked!==cb.checked){c.checked=cb.checked;onCheck(c,c.id.slice(1));}
+  });
+}
+
+// ── Nickname ─────────────────────────────────────────────────────────────────
+function saveNick(subNum,val){
+  const d=loadNicks();
+  if(val.trim()) d[subNum]=val.trim(); else delete d[subNum];
+  localStorage.setItem(NICK_KEY,JSON.stringify(d));
+}
+
+// ── Inline name editing ───────────────────────────────────────────────────────
+function startEditName(cid,lbl){
+  if(lbl.querySelector('input')) return;
+  const orig=lbl.dataset.orig||lbl.textContent.trim();
+  lbl.dataset.orig=orig;
+  const inp=document.createElement('input');
+  inp.type='text'; inp.value=orig; inp.className='name-edit-input';
+  inp.onclick=e=>e.stopPropagation();
+  lbl.textContent=''; lbl.appendChild(inp);
+  inp.focus(); inp.select();
+  const save=()=>{
+    const nv=inp.value.trim()||orig;
+    const d=loadCNames(); d[cid]=nv;
+    localStorage.setItem(CNAME_KEY,JSON.stringify(d));
+    lbl.textContent=nv; lbl.dataset.orig=nv;
+    const sb=document.getElementById('sellbtn'+cid); if(sb) sb.dataset.name=nv;
+  };
+  inp.addEventListener('blur',save);
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();inp.blur();}
+    if(e.key==='Escape'){e.preventDefault();lbl.textContent=orig;}
+  });
+}
+
+// ── Inline qty editing ────────────────────────────────────────────────────────
+function startEditQty(cid,pill){
+  if(pill.querySelector('input')) return;
+  const origText=pill.textContent.trim();
+  const origQty=parseInt(origText.replace('×','').replace('x',''))||1;
+  const inp=document.createElement('input');
+  inp.type='number'; inp.min='1'; inp.max='99'; inp.value=origQty;
+  inp.style.cssText='width:32px;font-size:11px;font-weight:800;border:none;outline:none;border-radius:4px;padding:1px 2px;background:rgba(255,255,255,.35);color:#fff;text-align:center;';
+  inp.onclick=e=>e.stopPropagation();
+  pill.textContent='×'; pill.appendChild(inp);
+  inp.focus(); inp.select();
+  const save=()=>{
+    const nv=Math.max(1,parseInt(inp.value)||origQty);
+    const d=loadCQty(); d[cid]=nv;
+    localStorage.setItem(CQTY_KEY,JSON.stringify(d));
+    pill.textContent='×'+nv;
+    if(nv<=1) pill.classList.add('hidden'); else pill.classList.remove('hidden');
+  };
+  inp.addEventListener('blur',save);
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();inp.blur();}
+    if(e.key==='Escape'){e.preventDefault();pill.textContent=origText;}
+  });
+}
+
+// ── Enhance all submissions (add checkboxes, nicknames, edit hooks) ───────────
+function enhanceSubs(){
+  const orderCks=loadOrderCks(),nicks=loadNicks(),cnames=loadCNames(),cqtys=loadCQty();
+  document.querySelectorAll('.submission').forEach(sub=>{
+    const subNum=sub.dataset.sub;
+    const header=sub.querySelector('.sub-header');
+    if(!header||header.dataset.enhanced) return;
+    header.dataset.enhanced='1';
+    const leftDiv=header.firstElementChild;
+    leftDiv.style.cssText='display:flex;flex-direction:column;gap:4px';
+
+    // Row with checkbox + sub info
+    const topRow=document.createElement('div');
+    topRow.style.cssText='display:flex;align-items:center;gap:10px';
+    const infoDiv=leftDiv.querySelector('.sub-num')?.parentElement;
+    if(infoDiv) {
+      const ck=document.createElement('input');
+      ck.type='checkbox'; ck.className='order-check';
+      ck.checked=orderCks[subNum]||false;
+      ck.title='Check/uncheck all cards in this order';
+      ck.onclick=e=>e.stopPropagation();
+      ck.onchange=e=>toggleOrderCheck(subNum,e.target);
+      topRow.appendChild(ck); topRow.appendChild(infoDiv.cloneNode(true));
+      leftDiv.replaceChild(topRow,infoDiv);
+    }
+
+    // Nickname
+    const nickInp=document.createElement('input');
+    nickInp.type='text'; nickInp.className='nick-input';
+    nickInp.placeholder='Add title / nickname...'; nickInp.value=nicks[subNum]||'';
+    nickInp.onclick=e=>e.stopPropagation();
+    nickInp.onchange=e=>saveNick(subNum,e.target.value);
+    nickInp.onblur=e=>saveNick(subNum,e.target.value);
+    nickInp.onkeydown=e=>{if(e.key==='Enter')nickInp.blur();};
+    leftDiv.appendChild(nickInp);
+  });
+
+  // Card rows: saved edits + dblclick
+  document.querySelectorAll('.card-row').forEach(row=>{
+    if(row.dataset.enhanced) return;
+    row.dataset.enhanced='1';
+    const cid=row.dataset.cid;
+    const lbl=row.querySelector('.card-name');
+    const pill=row.querySelector('.qty-pill');
+    if(lbl&&cnames[cid]){lbl.textContent=cnames[cid];lbl.dataset.orig=cnames[cid];}
+    if(pill&&cqtys[cid]){pill.textContent='×'+cqtys[cid];}
+    if(lbl){lbl.title='Double-click to rename';lbl.addEventListener('dblclick',e=>{e.preventDefault();startEditName(cid,lbl);});}
+    if(pill){pill.title='Double-click to edit qty';pill.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();startEditQty(cid,pill);});}
+  });
+}
+
+// ── Sort ──────────────────────────────────────────────────────────────────────
+function sortOrders(by){
+  const main=document.getElementById('main');
+  const subs=[...main.querySelectorAll('.submission')];
+  subs.sort((a,b)=>{
+    if(by==='nick'){
+      const na=loadNicks()[a.dataset.sub]||a.dataset.sub;
+      const nb=loadNicks()[b.dataset.sub]||b.dataset.sub;
+      return na.localeCompare(nb);
+    }
+    if(by==='count') return b.querySelectorAll('.card-row').length-a.querySelectorAll('.card-row').length;
+    return a.dataset.sub.localeCompare(b.dataset.sub); // default: original order
+  });
+  subs.forEach(s=>main.appendChild(s));
+}
+
+function sortItems(by){
+  document.querySelectorAll('.sub-body').forEach(body=>{
+    const rows=[...body.querySelectorAll('.card-row')];
+    rows.sort((a,b)=>{
+      if(by==='name'){
+        const na=a.querySelector('.card-name')?.textContent.trim()||'';
+        const nb=b.querySelector('.card-name')?.textContent.trim()||'';
+        return na.localeCompare(nb);
+      }
+      if(by==='qty'){
+        const qa=parseInt(a.querySelector('.qty-pill')?.textContent.replace(/\D/g,'')||'1');
+        const qb=parseInt(b.querySelector('.qty-pill')?.textContent.replace(/\D/g,'')||'1');
+        return qb-qa;
+      }
+      return 0;
+    });
+    rows.forEach(r=>body.appendChild(r));
+  });
 }
 
 // ── Sales ─────────────────────────────────────────────────────────────────────
