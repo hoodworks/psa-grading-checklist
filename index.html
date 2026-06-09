@@ -164,7 +164,7 @@ table.sales-tbl tr:hover td{background:#eef8ff}
 ::-webkit-scrollbar-thumb{background:#90b8d8;border-radius:4px}
 
 /* Order-level checkbox in sub header */
-.order-check{width:18px;height:18px;accent-color:#60d080;flex-shrink:0;cursor:pointer;margin-top:2px}
+.order-check{margin-top:2px}
 /* Nickname input */
 .nick-input{margin-top:5px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:3px 10px;font-size:11px;font-weight:700;color:#fff;font-family:'Nunito',system-ui,sans-serif;width:100%;max-width:280px;outline:none;transition:.15s}
 .nick-input::placeholder{color:rgba(255,255,255,.45)}
@@ -181,6 +181,48 @@ table.sales-tbl tr:hover td{background:#eef8ff}
 /* Card name edit hint */
 .card-name{cursor:default}
 .card-name:hover{color:#2060c8}
+
+
+/* ── Pokéball / Master Ball checkboxes ──────────────────────────────────────── */
+input[type=checkbox].order-check,
+.card-row input[type=checkbox] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  background: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMCAyMCIgc2hhcGUtcmVuZGVyaW5nPSJjcmlzcEVkZ2VzIj4KICA8cGF0aCBkPSJNMSAxMCBBOSA5IDAgMCAxIDE5IDEwIFoiIGZpbGw9IiNlMDMwMzAiLz4KICA8cGF0aCBkPSJNMSAxMCBBOSA5IDAgMCAwIDE5IDEwIFoiIGZpbGw9IiNmNGY0ZjQiLz4KICA8cmVjdCB4PSIwIiB5PSI5IiB3aWR0aD0iMjAiIGhlaWdodD0iMiIgZmlsbD0iIzIyMiIvPgogIDxjaXJjbGUgY3g9IjEwIiBjeT0iMTAiIHI9IjMiIGZpbGw9IiNmNGY0ZjQiIHN0cm9rZT0iIzIyMiIgc3Ryb2tlLXdpZHRoPSIxLjUiLz4KICA8Y2lyY2xlIGN4PSIxMCIgY3k9IjEwIiByPSI5IiBmaWxsPSJub25lIiBzdHJva2U9IiMyMjIiIHN0cm9rZS13aWR0aD0iMS41Ii8+Cjwvc3ZnPg==") no-repeat center/contain;
+  cursor: pointer;
+  border: none;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+  vertical-align: middle;
+  transition: transform .15s;
+}
+input[type=checkbox].order-check:checked,
+.card-row input[type=checkbox]:checked {
+  background: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMCAyMCIgc2hhcGUtcmVuZGVyaW5nPSJjcmlzcEVkZ2VzIj4KICA8cGF0aCBkPSJNMSAxMCBBOSA5IDAgMCAxIDE5IDEwIFoiIGZpbGw9IiM1MDEwYTAiLz4KICA8cGF0aCBkPSJNMSAxMCBBOSA5IDAgMCAwIDE5IDEwIFoiIGZpbGw9IiNmNGY0ZjQiLz4KICA8cmVjdCB4PSIzIiAgeT0iNSIgd2lkdGg9IjIiIGhlaWdodD0iMyIgZmlsbD0iI2UwNjBlMCIvPgogIDxyZWN0IHg9IjgiICB5PSIyIiB3aWR0aD0iNCIgaGVpZ2h0PSIzIiBmaWxsPSIjZTA2MGUwIi8+CiAgPHJlY3QgeD0iMTUiIHk9IjUiIHdpZHRoPSIyIiBoZWlnaHQ9IjMiIGZpbGw9IiNlMDYwZTAiLz4KICA8cmVjdCB4PSIwIiB5PSI5IiB3aWR0aD0iMjAiIGhlaWdodD0iMiIgZmlsbD0iIzIyMiIvPgogIDxjaXJjbGUgY3g9IjEwIiBjeT0iMTAiIHI9IjMiIGZpbGw9IiNlMDYwZTAiIHN0cm9rZT0iIzIyMiIgc3Ryb2tlLXdpZHRoPSIxLjUiLz4KICA8Y2lyY2xlIGN4PSIxMCIgY3k9IjEwIiByPSI5IiBmaWxsPSJub25lIiBzdHJva2U9IiMyMjIiIHN0cm9rZS13aWR0aD0iMS41Ii8+Cjwvc3ZnPg==") no-repeat center/contain;
+  transform: scale(1.15);
+}
+input[type=checkbox].order-check:hover,
+.card-row input[type=checkbox]:hover {
+  transform: scale(1.12);
+}
+/* ── Sub-header THEIRS indicator ───────────────────────────────────────────── */
+.sub-theirs-tag {
+  font-size: 10px;
+  font-weight: 800;
+  color: #fde68a;
+  background: rgba(0,0,0,.25);
+  border-radius: 8px;
+  padding: 2px 8px;
+  margin-top: 4px;
+  display: none;
+  letter-spacing: .3px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 </style>
 </head>
@@ -5384,6 +5426,9 @@ function toggleOthers(cardId){
     clearOthersState(cardId);
     localStorage.setItem(OTHERS_KEY,JSON.stringify(others));
     updateTotals();
+    const _rowC=document.getElementById('row'+cardId);
+    const _subC=_rowC&&_rowC.closest('.submission');
+    if(_subC) refreshTheirsIndicator(_subC.dataset.sub);
   } else {
     _othersCardId=cardId;
     document.getElementById('others-name-input').value='';
@@ -5398,8 +5443,11 @@ function submitOthers(){
   localStorage.setItem(OTHERS_KEY,JSON.stringify(others));
   applyOthersState(_othersCardId);
   document.getElementById('others-overlay').classList.remove('show');
+  const _rowS=document.getElementById('row'+_othersCardId);
+  const _subS=_rowS&&_rowS.closest('.submission');
   _othersCardId=null;
   updateTotals();
+  if(_subS) refreshTheirsIndicator(_subS.dataset.sub);
 }
 function closeOthers(){
   document.getElementById('others-overlay').classList.remove('show');
@@ -5777,6 +5825,7 @@ function enhanceSubs(){
     const leftDiv=header.firstElementChild;
     if(!leftDiv) return;
     const textWrap=document.createElement('div');
+    textWrap.className='sub-text-wrap';
     // Drain all existing children into textWrap
     while(leftDiv.firstChild) textWrap.appendChild(leftDiv.firstChild);
     // Append nickname inside textWrap
@@ -5785,6 +5834,7 @@ function enhanceSubs(){
     leftDiv.style.cssText='display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0';
     leftDiv.appendChild(ck);
     leftDiv.appendChild(textWrap);
+    refreshTheirsIndicator(subNum);
   });
 
   // ── Card rows: restore saved edits + dblclick handlers ────────────────────
@@ -5922,6 +5972,36 @@ function renderSales(){
     return `<tr><td>${s.date}</td><td style="max-width:200px;word-break:break-word">${s.item}</td><td>$${(s.buy||0).toFixed(2)}</td><td>$${s.sell.toFixed(2)}</td><td class="${p>=0?'profit-pos':'profit-neg'}">${(p>=0?'+':'')+'$'+p.toFixed(2)}</td><td>${method}</td><td>${s.venue}</td><td>${taxBadge}</td><td>${actionBtn}</td></tr>`;
   }).join('');
   wrap.innerHTML=`<table class="sales-tbl"><thead><tr><th>Date</th><th>Item</th><th>Cost</th><th>Sold</th><th>Profit</th><th>Method</th><th>Venue</th><th>Tax</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ── THEIRS indicator in sub-headers ──────────────────────────────────────────
+function refreshTheirsIndicator(subNum){
+  const sub=document.querySelector('.submission[data-sub="'+subNum+'"]');
+  if(!sub) return;
+  const others=loadOthers();
+  const ownerSet=new Set();
+  sub.querySelectorAll('.card-row').forEach(function(row){
+    const cid=row.dataset.cid;
+    if(others[cid]) ownerSet.add(typeof others[cid]==='string'?others[cid]:'Someone');
+  });
+  let el=sub.querySelector('.sub-theirs-tag');
+  if(!el){
+    el=document.createElement('div');
+    el.className='sub-theirs-tag';
+    const wrap=sub.querySelector('.sub-text-wrap');
+    if(wrap) wrap.appendChild(el);
+    else{
+      const hdr=sub.querySelector('.sub-header');
+      if(hdr) hdr.firstElementChild.appendChild(el);
+    }
+  }
+  if(ownerSet.size>0){
+    el.textContent='👤 Includes: '+[...ownerSet].join(', ');
+    el.style.display='';
+  } else {
+    el.style.display='none';
+    el.textContent='';
+  }
 }
 </script>
 
