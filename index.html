@@ -5320,13 +5320,14 @@ const loadOthers = () => load(OTHERS_KEY) || {};
   const fc=document.querySelector('.chevron');
   if(fb){ fb.classList.add('open'); if(fc) fc.style.transform='rotate(180deg)'; }
 
-  // Restore dynamically-added submissions (from PDF uploads)
-  loadDynSubs().forEach(r=>{
-    if(!document.querySelector('.submission[data-sub="'+r.subNum+'"]')) _renderSub(r);
-    _restoreSubState(r);
-  });
-
-  enhanceSubs();
+  // Restore dynamically-added submissions after full script parse (avoids TDZ)
+  setTimeout(function(){
+    loadDynSubs().forEach(function(r){
+      if(!document.querySelector('.submission[data-sub="'+r.subNum+'"]')) _renderSub(r);
+      _restoreSubState(r);
+    });
+    enhanceSubs();
+  }, 0);
 })();
 
 // ── Checkboxes ────────────────────────────────────────────────────────────────
@@ -5746,42 +5747,48 @@ function startEditQty(cid,pill){
 // ── Enhance all submissions (add checkboxes, nicknames, edit hooks) ───────────
 function enhanceSubs(){
   const orderCks=loadOrderCks(),nicks=loadNicks(),cnames=loadCNames(),cqtys=loadCQty();
-  document.querySelectorAll('.submission').forEach(sub=>{
+
+  document.querySelectorAll('.submission').forEach(function(sub){
     const subNum=sub.dataset.sub;
     const header=sub.querySelector('.sub-header');
     if(!header||header.dataset.enhanced) return;
     header.dataset.enhanced='1';
-    const leftDiv=header.firstElementChild;
-    leftDiv.style.cssText='display:flex;flex-direction:column;gap:4px';
 
-    // Row with checkbox + sub info
-    const topRow=document.createElement('div');
-    topRow.style.cssText='display:flex;align-items:center;gap:10px';
-    const infoDiv=leftDiv.querySelector('.sub-num')?.parentElement;
-    if(infoDiv) {
-      const ck=document.createElement('input');
-      ck.type='checkbox'; ck.className='order-check';
-      ck.checked=orderCks[subNum]||false;
-      ck.title='Check/uncheck all cards in this order';
-      ck.onclick=e=>e.stopPropagation();
-      ck.onchange=e=>toggleOrderCheck(subNum,e.target);
-      topRow.appendChild(ck); topRow.appendChild(infoDiv.cloneNode(true));
-      leftDiv.replaceChild(topRow,infoDiv);
-    }
+    // ── Order checkbox ────────────────────────────────────────────────────────
+    const ck=document.createElement('input');
+    ck.type='checkbox'; ck.className='order-check';
+    ck.checked=!!(orderCks[subNum]);
+    ck.title='Check/uncheck all cards in this order';
+    ck.onclick=function(e){e.stopPropagation();};
+    ck.onchange=function(e){toggleOrderCheck(subNum,e.target);};
 
-    // Nickname
+    // ── Nickname input ────────────────────────────────────────────────────────
     const nickInp=document.createElement('input');
     nickInp.type='text'; nickInp.className='nick-input';
     nickInp.placeholder='Add title / nickname...'; nickInp.value=nicks[subNum]||'';
-    nickInp.onclick=e=>e.stopPropagation();
-    nickInp.onchange=e=>saveNick(subNum,e.target.value);
-    nickInp.onblur=e=>saveNick(subNum,e.target.value);
-    nickInp.onkeydown=e=>{if(e.key==='Enter')nickInp.blur();};
-    leftDiv.appendChild(nickInp);
+    nickInp.onclick=function(e){e.stopPropagation();};
+    nickInp.onchange=function(e){saveNick(subNum,e.target.value);};
+    nickInp.onblur=function(e){saveNick(subNum,e.target.value);};
+    nickInp.onkeydown=function(e){if(e.key==='Enter')nickInp.blur();};
+
+    // ── Restructure leftDiv safely (move, never clone) ────────────────────────
+    // leftDiv currently: [sub-num-div][sub-meta-div]
+    // After: leftDiv (flex row) → [checkbox] [textWrap: [sub-num][sub-meta][nickInp]]
+    const leftDiv=header.firstElementChild;
+    if(!leftDiv) return;
+    const textWrap=document.createElement('div');
+    // Drain all existing children into textWrap
+    while(leftDiv.firstChild) textWrap.appendChild(leftDiv.firstChild);
+    // Append nickname inside textWrap
+    textWrap.appendChild(nickInp);
+    // Put checkbox then textWrap back into leftDiv as flex row
+    leftDiv.style.cssText='display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0';
+    leftDiv.appendChild(ck);
+    leftDiv.appendChild(textWrap);
   });
 
-  // Card rows: saved edits + dblclick
-  document.querySelectorAll('.card-row').forEach(row=>{
+  // ── Card rows: restore saved edits + dblclick handlers ────────────────────
+  document.querySelectorAll('.card-row').forEach(function(row){
     if(row.dataset.enhanced) return;
     row.dataset.enhanced='1';
     const cid=row.dataset.cid;
@@ -5789,8 +5796,14 @@ function enhanceSubs(){
     const pill=row.querySelector('.qty-pill');
     if(lbl&&cnames[cid]){lbl.textContent=cnames[cid];lbl.dataset.orig=cnames[cid];}
     if(pill&&cqtys[cid]){pill.textContent='×'+cqtys[cid];}
-    if(lbl){lbl.title='Double-click to rename';lbl.addEventListener('dblclick',e=>{e.preventDefault();startEditName(cid,lbl);});}
-    if(pill){pill.title='Double-click to edit qty';pill.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();startEditQty(cid,pill);});}
+    if(lbl){
+      lbl.title='Double-click to edit name';
+      lbl.addEventListener('dblclick',function(e){e.preventDefault();startEditName(cid,lbl);});
+    }
+    if(pill){
+      pill.title='Double-click to edit qty';
+      pill.addEventListener('dblclick',function(e){e.preventDefault();e.stopPropagation();startEditQty(cid,pill);});
+    }
   });
 }
 
@@ -5798,35 +5811,36 @@ function enhanceSubs(){
 function sortOrders(by){
   const main=document.getElementById('main');
   const subs=[...main.querySelectorAll('.submission')];
-  subs.sort((a,b)=>{
+  subs.sort(function(a,b){
     if(by==='nick'){
       const na=loadNicks()[a.dataset.sub]||a.dataset.sub;
       const nb=loadNicks()[b.dataset.sub]||b.dataset.sub;
       return na.localeCompare(nb);
     }
     if(by==='count') return b.querySelectorAll('.card-row').length-a.querySelectorAll('.card-row').length;
-    return a.dataset.sub.localeCompare(b.dataset.sub); // default: original order
+    return a.dataset.sub.localeCompare(b.dataset.sub);
   });
-  subs.forEach(s=>main.appendChild(s));
+  subs.forEach(function(s){main.appendChild(s);});
+  enhanceSubs(); // ensure any new subs get enhanced after reorder
 }
 
 function sortItems(by){
-  document.querySelectorAll('.sub-body').forEach(body=>{
+  document.querySelectorAll('.sub-body').forEach(function(body){
     const rows=[...body.querySelectorAll('.card-row')];
-    rows.sort((a,b)=>{
+    rows.sort(function(a,b){
       if(by==='name'){
         const na=a.querySelector('.card-name')?.textContent.trim()||'';
         const nb=b.querySelector('.card-name')?.textContent.trim()||'';
         return na.localeCompare(nb);
       }
       if(by==='qty'){
-        const qa=parseInt(a.querySelector('.qty-pill')?.textContent.replace(/\D/g,'')||'1');
-        const qb=parseInt(b.querySelector('.qty-pill')?.textContent.replace(/\D/g,'')||'1');
+        const qa=parseInt((a.querySelector('.qty-pill')?.textContent||'1').replace(/\D/g,''))||1;
+        const qb=parseInt((b.querySelector('.qty-pill')?.textContent||'1').replace(/\D/g,''))||1;
         return qb-qa;
       }
       return 0;
     });
-    rows.forEach(r=>body.appendChild(r));
+    rows.forEach(function(r){body.appendChild(r);});
   });
 }
 
