@@ -200,28 +200,77 @@ input[type=checkbox].order-check,
 }
 input[type=checkbox].order-check:checked,
 .card-row input[type=checkbox]:checked {
-  background: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMCAyMCIgc2hhcGUtcmVuZGVyaW5nPSJjcmlzcEVkZ2VzIj4KICA8cGF0aCBkPSJNMSAxMCBBOSA5IDAgMCAxIDE5IDEwIFoiIGZpbGw9IiM1MDEwYTAiLz4KICA8cGF0aCBkPSJNMSAxMCBBOSA5IDAgMCAwIDE5IDEwIFoiIGZpbGw9IiNmNGY0ZjQiLz4KICA8cmVjdCB4PSIzIiAgeT0iNSIgd2lkdGg9IjIiIGhlaWdodD0iMyIgZmlsbD0iI2UwNjBlMCIvPgogIDxyZWN0IHg9IjgiICB5PSIyIiB3aWR0aD0iNCIgaGVpZ2h0PSIzIiBmaWxsPSIjZTA2MGUwIi8+CiAgPHJlY3QgeD0iMTUiIHk9IjUiIHdpZHRoPSIyIiBoZWlnaHQ9IjMiIGZpbGw9IiNlMDYwZTAiLz4KICA8cmVjdCB4PSIwIiB5PSI5IiB3aWR0aD0iMjAiIGhlaWdodD0iMiIgZmlsbD0iIzIyMiIvPgogIDxjaXJjbGUgY3g9IjEwIiBjeT0iMTAiIHI9IjMiIGZpbGw9IiNlMDYwZTAiIHN0cm9rZT0iIzIyMiIgc3Ryb2tlLXdpZHRoPSIxLjUiLz4KICA8Y2lyY2xlIGN4PSIxMCIgY3k9IjEwIiByPSI5IiBmaWxsPSJub25lIiBzdHJva2U9IiMyMjIiIHN0cm9rZS13aWR0aD0iMS41Ii8+Cjwvc3ZnPg==") no-repeat center/contain;
-  transform: scale(1.15);
+  filter: grayscale(1) brightness(0.68);
+  transform: scale(1) !important;
 }
-input[type=checkbox].order-check:hover,
-.card-row input[type=checkbox]:hover {
+input[type=checkbox].order-check:hover:not(:checked),
+.card-row input[type=checkbox]:hover:not(:checked) {
   transform: scale(1.12);
 }
 /* ── Sub-header THEIRS indicator ───────────────────────────────────────────── */
 .sub-theirs-tag {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
-  color: #fde68a;
-  background: rgba(0,0,0,.25);
-  border-radius: 8px;
+  color: #1a2030;
+  background: #fde68a;
+  border-radius: 10px;
   padding: 2px 8px;
-  margin-top: 4px;
   display: none;
-  letter-spacing: .3px;
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  letter-spacing: .2px;
   white-space: nowrap;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+
+/* ── Pokéball wobble + burst animation ─────────────────────────────────────── */
+@keyframes pb-wobble {
+  0%   { transform: scale(1)    rotate(0deg);   filter: brightness(1)   saturate(1); }
+  8%   { transform: scale(1.45) rotate(-22deg); filter: brightness(3.5) saturate(4); }
+  18%  { transform: scale(1.28) rotate(17deg);  filter: brightness(2)   saturate(2); }
+  28%  { transform: scale(1.14) rotate(-12deg); filter: brightness(1.5); }
+  38%  { transform: scale(1.07) rotate(8deg);   filter: brightness(1.2); }
+  48%  { transform: scale(1.03) rotate(-4deg);  filter: brightness(1); }
+  58%  { transform: scale(1.01) rotate(2deg); }
+  70%  { transform: scale(1)    rotate(-1deg); }
+  82%  { transform: scale(1)    rotate(0);      filter: brightness(1); }
+  100% { transform: scale(1)    rotate(0);      filter: grayscale(1) brightness(0.68); }
+}
+input[type=checkbox].pb-wobbling {
+  animation: pb-wobble 0.72s cubic-bezier(0.36,0.07,0.19,0.97) forwards !important;
+  filter: none !important;
+}
+@keyframes pb-ring {
+  0%   { transform: translate(-50%,-50%) scale(0.1); opacity: 1; }
+  70%  { opacity: 0.6; }
+  100% { transform: translate(-50%,-50%) scale(3.2); opacity: 0; }
+}
+@keyframes pb-spark {
+  0%   { opacity: 1; transform: translate(-50%,-50%) translate(0,0) scale(1.4); }
+  100% { opacity: 0; transform: translate(-50%,-50%) translate(var(--tx),var(--ty)) scale(0); }
+}
+.pb-ring {
+  position: fixed;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 99999;
+  border: 2.5px solid #ffe566;
+  box-shadow: 0 0 8px #ffe566, 0 0 16px rgba(255,220,80,.5);
+  animation: pb-ring 0.45s ease-out forwards;
+}
+.pb-ring2 {
+  animation-delay: 0.08s;
+  border-color: #ff9944;
+  box-shadow: 0 0 8px #ff9944;
+}
+.pb-spark {
+  position: fixed;
+  width: 5px; height: 5px;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 99999;
+  animation: pb-spark 0.55s ease-out forwards;
 }
 
 </style>
@@ -5988,11 +6037,14 @@ function refreshTheirsIndicator(subNum){
   if(!el){
     el=document.createElement('div');
     el.className='sub-theirs-tag';
-    const wrap=sub.querySelector('.sub-text-wrap');
-    if(wrap) wrap.appendChild(el);
+    // Insert into sub-right before the chevron so it shows in the blue header
+    const right=sub.querySelector('.sub-right');
+    const chevron=right&&right.querySelector('.chevron');
+    if(right&&chevron) right.insertBefore(el,chevron);
+    else if(right) right.appendChild(el);
     else{
       const hdr=sub.querySelector('.sub-header');
-      if(hdr) hdr.firstElementChild.appendChild(el);
+      if(hdr) hdr.appendChild(el);
     }
   }
   if(ownerSet.size>0){
@@ -6003,6 +6055,41 @@ function refreshTheirsIndicator(subNum){
     el.textContent='';
   }
 }
+
+// ── Pokéball click animation ──────────────────────────────────────────────────
+document.addEventListener('change', function(e){
+  var cb=e.target;
+  if(cb.type!=='checkbox'||!cb.checked) return;
+  if(!cb.matches('.order-check')&&!cb.closest('.card-row')) return;
+  var rect=cb.getBoundingClientRect();
+  var cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+  // Wobble animation on the checkbox
+  cb.classList.remove('pb-wobbling');
+  void cb.offsetWidth;
+  cb.classList.add('pb-wobbling');
+  cb.addEventListener('animationend',function(){cb.classList.remove('pb-wobbling');},{once:true});
+  // Two expanding shine rings
+  [0,1].forEach(function(i){
+    var ring=document.createElement('div');
+    ring.className='pb-ring'+(i?' pb-ring2':'');
+    ring.style.cssText='left:'+cx+'px;top:'+cy+'px;';
+    document.body.appendChild(ring);
+    ring.addEventListener('animationend',function(){ring.remove();});
+  });
+  // Pixel sparks bursting outward
+  var colors=['#ffe566','#ff9944','#ffffff','#88eeff','#ff88cc','#aaffaa','#ffaaff','#ffdd88'];
+  for(var i=0;i<8;i++){
+    var angle=(i/8)*Math.PI*2+Math.random()*0.4;
+    var dist=16+Math.random()*16;
+    var sp=document.createElement('div');
+    sp.className='pb-spark';
+    sp.style.cssText='left:'+cx+'px;top:'+cy+'px;background:'+colors[i%colors.length]+';'
+      +'--tx:'+Math.round(Math.cos(angle)*dist)+'px;--ty:'+Math.round(Math.sin(angle)*dist)+'px;'
+      +'animation-delay:'+(Math.random()*0.07).toFixed(3)+'s';
+    document.body.appendChild(sp);
+    sp.addEventListener('animationend',function(){sp.remove();});
+  }
+}, true);
 </script>
 
 <!-- Others Modal -->
